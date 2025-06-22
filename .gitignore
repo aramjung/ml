@@ -1,0 +1,97 @@
+# Image files
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.tiff
+*.tif
+*.webp
+*.svg
+
+# Python specific
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+venv_*/
+ENV/
+env.bak/
+.venv/
+myenv/
+*/bin/activate
+*/Scripts/activate
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Jupyter Notebook files
+.ipynb_checkpoints/
+*.ipynb-filter
+
+# Kaggle/ML specific
+# Datasets (often large and should not be committed)
+data/
+datasets/
+input/
+
+# Model checkpoints/weights (can be very large and recreated)
+*.h5
+*.pth
+*.pkl
+*.joblib
+models/
+checkpoints/
+
+# Output files/predictions
+output/
+submission.csv
+submissions/
+results/
+*.csv # Be careful with this if you have small, versioned CSVs. You might want to be more specific, e.g., output/*.csv
+*.npy
+*.npz
+
+# Logs
+*.log
+logs/
+
+# Environment variables and sensitive info
+.env
+.flaskenv
+*.envrc
+
+# IDEs and Editors
+.idea/             # PyCharm
+.vscode/           # VS Code
+*.iml              # IntelliJ IDEA (if you use it for Python)
+.project           # Eclipse
+.pydevproject      # PyDev
+.DS_Store          # macOS specific
+Thumbs.db          # Windows specific
+Desktop.ini        # Windows specific
+
+# Miscellaneous
+tmp/
+*.tmp
+*.bak
+*.swp
+*~
