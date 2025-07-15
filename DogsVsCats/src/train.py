@@ -40,12 +40,9 @@ class CustomDataset(Dataset):
 # This function prepares the dataset for training, validation, and testing.
 ## It loads images from a specified directory, applies transformations, and returns a DataLoader.
 # train_enum: 0=train, 1=validation
-def load_dataset(data_dir, train=True, infer=True, batch_size=32, num_workers=4):
+def load_dataset(data_dir, train=True, label=True, batch_size=32, num_workers=4):
     # Define transformations
-    transform = None
-    shuffle = False
     # If training, apply transformations with randomization; otherwise, apply only resizing and normalization
-    
     transform_list = [transforms.Resize((224, 224))]
     if train:
         transform_list += [
@@ -68,24 +65,25 @@ def load_dataset(data_dir, train=True, infer=True, batch_size=32, num_workers=4)
             for img_file in os.listdir(class_dir):
                 if img_file.lower().endswith(('.png', '.jpg', '.jpeg')):
                     image_paths.append(os.path.join(class_dir, img_file)) # Full path to the image file
-                    if train:  # Only collect labels if training
+                    if label:
                         labels.append(1 if class_name.lower()=='dog' else 0)  # Assuming binary classification (Dog, Cat) // 1 for Dog, 0 for Cat
-    if train: shuffle = True 
+    if not label:
+        labels = None 
     # Create dataset and dataloader
-    if infer: labels = None  # If infering, labels are not needed 
     dataset = CustomDataset(image_paths=image_paths, labels=labels, transform=transform)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=train, num_workers=num_workers)
 
     return dataloader
 
-# Load datasets
-train_loader = load_dataset('../data/train', train=True, infer=False, batch_size=32)
-validation_loader = load_dataset('../data/validation', train=False, infer=False, batch_size=32)
+# Load datasets / all data sets have labels in my case 
+train_loader = load_dataset('../data/train', train=True, batch_size=32)
+validation_loader = load_dataset('../data/validation', train=False, batch_size=32)
 test_loader = load_dataset('../data/test', train=False, batch_size=32)
 
 # define the model
 def get_model():
     model = models.resnet18(pretrained=True)  # Load a pre-trained ResNet-18 model
+    num_features = model.fc.in_features
     model.fc = nn.Linear(model.fc.in_features, 1)  # Replace the final layer - outputs 1 logit for binary classification
     for param in model.parameters():
         param.requires_grad = True  # Fine-tune all layers
@@ -97,16 +95,20 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = get_model().to(device)  # Assuming binary classification (Dog, Cat)
 criterion = nn.BCEWithLogitsLoss() # Loss function: Binary Cross-Entropy Loss for binary classification
 optimizer = optim.Adam(model.parameters(), lr=0.001)  # Adam optimizer with learning rate of 0.001
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=2)
 
 # Training function
 # This function trains the model using the provided DataLoader, loss function, and optimizer.
 def train_model(model, train_loader, val_loader, criterion, optimizer, num_epochs=10, max_patience=5):
-    model.train()  # Set the model to training mode
     # Initialize variables for tracking best validation loss and patience for early stopping
     best_validation_loss = float('inf')  # Initialize best validation loss
     patience = 0  # Initialize patience for early stopping
     # Iterate over the number of epochs
     for epoch in range(num_epochs):
+        current_lr = optimizer.param_groups[0]['lr']
+        print(f"Current learning rate: {current_lr:.6f}")
+
+        model.train()  # Set the model to training mode
         running_loss = 0.0
         correct_preds = 0.0
         # Iterate over the training data
@@ -130,6 +132,9 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, num_epoch
         print(f"Epoch [{epoch+1}/{num_epochs}], Training Loss: {running_loss/ len(train_loader.dataset):.4f}, Training Accuracy: {train_accuracy:.4f}")
         # Validate the model
         validation_loss = validate_model(model, val_loader, criterion)    
+
+        scheduler.step(validation_loss)
+
         if validation_loss < best_validation_loss:
             patience = 0
             best_validation_loss = validation_loss
@@ -168,7 +173,9 @@ def validate_model(model, val_loader, criterion):
 train_model(model, train_loader, validation_loader, criterion, optimizer, num_epochs=10, max_patience=5)
 
 # Test function
-# This function evaluates the model on the test set and prints the accuracy and classification report.  
+# This function evaluates the model on the test set and prints the accuracy and classification report. 
+# TODO: compute accuracy and classification report
+# It sets the model to evaluation mode, disables gradient calculation, and computes the accuracy and classification report 
 def test_model(model, test_loader):
     model.eval()  # Set the model to evaluation mode
     all_preds = []
@@ -176,10 +183,12 @@ def test_model(model, test_loader):
     with torch.no_grad():  # Disable gradient calculation for testing
         for images, labels in test_loader:
             images = images.to(device)
+            labels = labels.to(device).float()  # Convert labels to float for BCEWithLogitsLoss
             outputs = model(images)  # Forward pass
             preds = torch.sigmoid(outputs).view(-1) > 0.5  # Apply sigmoid and threshold at 0.5
+
             all_preds.extend(preds.cpu().numpy())  # Move predictions to CPU and convert to numpy array
-            all_labels.extend(labels.numpy())  # Move labels to CPU and convert to numpy array
+            all_labels.extend(labels.cpu().numpy())  # Move labels to CPU and convert to numpy array
 
     accuracy = accuracy_score(all_labels, all_preds)  # Calculate accuracy
     print(f"Test Accuracy: {accuracy:.4f}")

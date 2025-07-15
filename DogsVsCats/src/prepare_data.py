@@ -4,7 +4,7 @@ import random
 import sys
 from PIL import Image 
 # This script prepares the dataset for training, validation, and testing.
-SOURCE_DIR = '../data/PetImages'
+SOURCE_DIR = '../original/PetImages'
 BASE_DIR = '../data'
 
 def create_dir_if_not_exists(path):
