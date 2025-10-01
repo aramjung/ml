@@ -9,6 +9,9 @@
 *.webp
 *.svg
 
+# zip files
+*.zip
+
 # Python specific
 __pycache__/
 *.pyc
